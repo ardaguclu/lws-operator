@@ -28,7 +28,7 @@ spec:
             - --zap-log-level=2
           command:
             - /manager
-          image: gcr.io/k8s-staging-lws/lws:main
+          image: quay.io/aguclu/lws:intcert
           livenessProbe:
             httpGet:
               path: /healthz
