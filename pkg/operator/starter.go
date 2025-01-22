@@ -10,6 +10,7 @@ import (
 const (
 	podNamespaceEnv   = "POD_NAMESPACE"
 	operatorNamespace = "openshift-lws-operator"
+	workQueueKey      = "key"
 )
 
 func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error {
