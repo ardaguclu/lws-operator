@@ -177,6 +177,18 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
   - nonResourceURLs:
       - /metrics
     verbs:
