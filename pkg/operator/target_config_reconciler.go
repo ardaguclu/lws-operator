@@ -9,6 +9,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextclientv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,15 +36,16 @@ import (
 )
 
 type TargetConfigReconciler struct {
-	ctx               context.Context
-	targetImage       string
-	operatorClient    lwsoperatorv1alpha1.LwsOperatorsV1alpha1Interface
-	dynamicClient     dynamic.Interface
-	lwsOperatorClient *operatorclient.LWSOperatorClient
-	kubeClient        kubernetes.Interface
-	eventRecorder     events.Recorder
-	queue             workqueue.TypedRateLimitingInterface[string]
-	namespace         string
+	ctx                context.Context
+	targetImage        string
+	operatorClient     lwsoperatorv1alpha1.LwsOperatorsV1alpha1Interface
+	dynamicClient      dynamic.Interface
+	lwsOperatorClient  *operatorclient.LWSOperatorClient
+	kubeClient         kubernetes.Interface
+	apiextensionClient *apiextclientv1.Clientset
+	eventRecorder      events.Recorder
+	queue              workqueue.TypedRateLimitingInterface[string]
+	namespace          string
 }
 
 func NewTargetConfigReconciler(
@@ -54,18 +57,20 @@ func NewTargetConfigReconciler(
 	lwsOperatorClient *operatorclient.LWSOperatorClient,
 	dynamicClient dynamic.Interface,
 	kubeClient kubernetes.Interface,
+	apiExtensionClient *apiextclientv1.Clientset,
 	eventRecorder events.Recorder,
 ) *TargetConfigReconciler {
 	c := &TargetConfigReconciler{
-		ctx:               ctx,
-		operatorClient:    operatorConfigClient,
-		dynamicClient:     dynamicClient,
-		lwsOperatorClient: lwsOperatorClient,
-		kubeClient:        kubeClient,
-		eventRecorder:     eventRecorder,
-		queue:             workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[string](), workqueue.TypedRateLimitingQueueConfig[string]{Name: "TargetConfigReconciler"}),
-		targetImage:       targetImage,
-		namespace:         namespace,
+		ctx:                ctx,
+		operatorClient:     operatorConfigClient,
+		dynamicClient:      dynamicClient,
+		lwsOperatorClient:  lwsOperatorClient,
+		kubeClient:         kubeClient,
+		apiextensionClient: apiExtensionClient,
+		eventRecorder:      eventRecorder,
+		queue:              workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[string](), workqueue.TypedRateLimitingQueueConfig[string]{Name: "TargetConfigReconciler"}),
+		targetImage:        targetImage,
+		namespace:          namespace,
 	}
 
 	operatorClientInformer.Informer().AddEventHandler(c.eventHandler())
@@ -143,6 +148,12 @@ func (c *TargetConfigReconciler) sync() error {
 	_, _, err = c.manageConfigmap(lwsOperator)
 	if err != nil {
 		klog.Errorf("unable to manage configmap err: %v", err)
+		return err
+	}
+
+	_, _, err = c.manageCustomResourceDefinition(lwsOperator)
+	if err != nil {
+		klog.Errorf("unable to manage leaderworkerset CRD err: %v", err)
 		return err
 	}
 
@@ -442,6 +453,29 @@ func (c *TargetConfigReconciler) manageServiceAccount(lwsOperator *v1alpha1.LwsO
 	controller.EnsureOwnerRef(required, ownerReference)
 
 	return resourceapply.ApplyServiceAccount(c.ctx, c.kubeClient.CoreV1(), c.eventRecorder, required)
+}
+
+func (c *TargetConfigReconciler) manageCustomResourceDefinition(lwsOperator *v1alpha1.LwsOperator) (*apiextensionv1.CustomResourceDefinition, bool, error) {
+	required := resourceread.ReadCustomResourceDefinitionV1OrDie(bindata.MustAsset("assets/lws-operator/leaderworkerset.x-k8s.io_leaderworkersets.yaml"))
+	ownerReference := metav1.OwnerReference{
+		APIVersion: "operator.openshift.io/v1alpha1",
+		Kind:       "LwsOperator",
+		Name:       lwsOperator.Name,
+		UID:        lwsOperator.UID,
+	}
+	required.OwnerReferences = []metav1.OwnerReference{
+		ownerReference,
+	}
+	controller.EnsureOwnerRef(required, ownerReference)
+
+	if required.Spec.Conversion != nil &&
+		required.Spec.Conversion.Webhook != nil &&
+		required.Spec.Conversion.Webhook.ClientConfig != nil &&
+		required.Spec.Conversion.Webhook.ClientConfig.Service != nil {
+		required.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = c.namespace
+	}
+
+	return resourceapply.ApplyCustomResourceDefinitionV1(c.ctx, c.apiextensionClient.ApiextensionsV1(), c.eventRecorder, required)
 }
 
 func (c *TargetConfigReconciler) manageMutatingWebhook(lwsOperator *v1alpha1.LwsOperator) (*admissionv1.MutatingWebhookConfiguration, bool, error) {
