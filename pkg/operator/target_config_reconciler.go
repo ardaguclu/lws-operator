@@ -261,6 +261,10 @@ func (c *TargetConfigReconciler) manageRoleBinding(lwsOperator *v1alpha1.LwsOper
 	}
 	controller.EnsureOwnerRef(required, ownerReference)
 
+	for i, _ := range required.Subjects {
+		required.Subjects[i].Namespace = c.namespace
+	}
+
 	return resourceapply.ApplyRoleBinding(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
@@ -283,7 +287,6 @@ func (c *TargetConfigReconciler) manageRoleBindingMonitoring(lwsOperator *v1alph
 
 func (c *TargetConfigReconciler) manageClusterRoleManager(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRole, bool, error) {
 	required := resourceread.ReadClusterRoleV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrole_manager.yaml"))
-	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
 		APIVersion: "operator.openshift.io/v1alpha1",
 		Kind:       "LwsOperator",
@@ -300,7 +303,6 @@ func (c *TargetConfigReconciler) manageClusterRoleManager(lwsOperator *v1alpha1.
 
 func (c *TargetConfigReconciler) manageClusterRoleMetrics(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRole, bool, error) {
 	required := resourceread.ReadClusterRoleV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrole_metrics.yaml"))
-	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
 		APIVersion: "operator.openshift.io/v1alpha1",
 		Kind:       "LwsOperator",
@@ -317,7 +319,6 @@ func (c *TargetConfigReconciler) manageClusterRoleMetrics(lwsOperator *v1alpha1.
 
 func (c *TargetConfigReconciler) manageClusterRoleProxy(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRole, bool, error) {
 	required := resourceread.ReadClusterRoleV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrole_proxy.yaml"))
-	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
 		APIVersion: "operator.openshift.io/v1alpha1",
 		Kind:       "LwsOperator",
@@ -334,7 +335,6 @@ func (c *TargetConfigReconciler) manageClusterRoleProxy(lwsOperator *v1alpha1.Lw
 
 func (c *TargetConfigReconciler) manageClusterRoleBindingManager(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRoleBinding, bool, error) {
 	required := resourceread.ReadClusterRoleBindingV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrolebinding_manager.yaml"))
-	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
 		APIVersion: "operator.openshift.io/v1alpha1",
 		Kind:       "LwsOperator",
@@ -345,13 +345,16 @@ func (c *TargetConfigReconciler) manageClusterRoleBindingManager(lwsOperator *v1
 		ownerReference,
 	}
 	controller.EnsureOwnerRef(required, ownerReference)
+
+	for i, _ := range required.Subjects {
+		required.Subjects[i].Namespace = c.namespace
+	}
 
 	return resourceapply.ApplyClusterRoleBinding(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
 func (c *TargetConfigReconciler) manageClusterRoleBindingMetrics(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRoleBinding, bool, error) {
 	required := resourceread.ReadClusterRoleBindingV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrolebinding_metrics.yaml"))
-	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
 		APIVersion: "operator.openshift.io/v1alpha1",
 		Kind:       "LwsOperator",
@@ -362,13 +365,16 @@ func (c *TargetConfigReconciler) manageClusterRoleBindingMetrics(lwsOperator *v1
 		ownerReference,
 	}
 	controller.EnsureOwnerRef(required, ownerReference)
+
+	for i, _ := range required.Subjects {
+		required.Subjects[i].Namespace = c.namespace
+	}
 
 	return resourceapply.ApplyClusterRoleBinding(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
 func (c *TargetConfigReconciler) manageClusterRoleBindingProxy(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRoleBinding, bool, error) {
 	required := resourceread.ReadClusterRoleBindingV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrolebinding_proxy.yaml"))
-	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
 		APIVersion: "operator.openshift.io/v1alpha1",
 		Kind:       "LwsOperator",
@@ -379,6 +385,10 @@ func (c *TargetConfigReconciler) manageClusterRoleBindingProxy(lwsOperator *v1al
 		ownerReference,
 	}
 	controller.EnsureOwnerRef(required, ownerReference)
+
+	for i, _ := range required.Subjects {
+		required.Subjects[i].Namespace = c.namespace
+	}
 
 	return resourceapply.ApplyClusterRoleBinding(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
@@ -436,7 +446,6 @@ func (c *TargetConfigReconciler) manageServiceAccount(lwsOperator *v1alpha1.LwsO
 
 func (c *TargetConfigReconciler) manageMutatingWebhook(lwsOperator *v1alpha1.LwsOperator) (*admissionv1.MutatingWebhookConfiguration, bool, error) {
 	required := resourceread.ReadMutatingWebhookConfigurationV1OrDie(bindata.MustAsset("assets/lws-operator/mutatingwebhook.yaml"))
-	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
 		APIVersion: "operator.openshift.io/v1alpha1",
 		Kind:       "LwsOperator",
@@ -447,13 +456,18 @@ func (c *TargetConfigReconciler) manageMutatingWebhook(lwsOperator *v1alpha1.Lws
 		ownerReference,
 	}
 	controller.EnsureOwnerRef(required, ownerReference)
+
+	for i, _ := range required.Webhooks {
+		if required.Webhooks[i].ClientConfig.Service != nil {
+			required.Webhooks[i].ClientConfig.Service.Namespace = c.namespace
+		}
+	}
 
 	return resourceapply.ApplyMutatingWebhookConfigurationImproved(c.ctx, c.kubeClient.AdmissionregistrationV1(), c.eventRecorder, required, resourceapply.NewResourceCache())
 }
 
 func (c *TargetConfigReconciler) manageValidatingWebhook(lwsOperator *v1alpha1.LwsOperator) (*admissionv1.ValidatingWebhookConfiguration, bool, error) {
 	required := resourceread.ReadValidatingWebhookConfigurationV1OrDie(bindata.MustAsset("assets/lws-operator/validatingwebhook.yaml"))
-	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
 		APIVersion: "operator.openshift.io/v1alpha1",
 		Kind:       "LwsOperator",
@@ -464,6 +478,12 @@ func (c *TargetConfigReconciler) manageValidatingWebhook(lwsOperator *v1alpha1.L
 		ownerReference,
 	}
 	controller.EnsureOwnerRef(required, ownerReference)
+
+	for i, _ := range required.Webhooks {
+		if required.Webhooks[i].ClientConfig.Service != nil {
+			required.Webhooks[i].ClientConfig.Service.Namespace = c.namespace
+		}
+	}
 
 	return resourceapply.ApplyValidatingWebhookConfigurationImproved(c.ctx, c.kubeClient.AdmissionregistrationV1(), c.eventRecorder, required, resourceapply.NewResourceCache())
 }

@@ -10,8 +10,8 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: openshift-lws-leader-election-role
+  name: lws-leader-election-role
 subjects:
   - kind: ServiceAccount
-    name: openshift-lws-controller-manager
+    name: lws-controller-manager
     namespace: openshift-lws-operator

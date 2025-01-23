@@ -20,8 +20,9 @@ rules:
   - apiGroups:
       - leaderworkerset.x-k8s.io
     resources:
-      - leaderworkerset
-      - leaderworkerset/status
+      - leaderworkersets
+      - leaderworkersets/status
+      - leaderworkersets/finalizers
     verbs:
       - create
       - delete
@@ -65,10 +66,46 @@ rules:
     resources:
       - deployments
       - replicasets
+      - pods
+      - services
+      - controllerrevisions
+      - statefulsets
     verbs:
       - create
       - delete
       - deletecollection
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - controllerrevisions/finalizers
+      - statefulsets/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - apps
+    resources:
+      - controllerrevisions/status
+      - statefulsets/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - pods/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
       - get
       - list
       - patch
@@ -83,6 +120,7 @@ rules:
       - pods
       - secrets
       - configmaps
+      - endpoints
     verbs:
       - create
       - delete
@@ -127,3 +165,21 @@ rules:
       - patch
       - update
       - watch
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+
+

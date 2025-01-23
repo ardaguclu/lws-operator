@@ -56,7 +56,10 @@ spec:
                 - ALL
           volumeMounts:
             - mountPath: /tmp/k8s-webhook-server/serving-certs
-              name: cert
+              name: webhook-cert
+              readOnly: true
+            - mountPath: /tmp/k8s-metrics-server/serving-certs
+              name: metrics-cert
               readOnly: true
             - name: lws-manager-config
               mountPath: /controller_manager_config.yaml
@@ -66,7 +69,11 @@ spec:
       serviceAccountName: lws-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
-        - name: cert
+        - name: metrics-cert
+          secret:
+            defaultMode: 420
+            secretName: lws-manager-server-cert
+        - name: webhook-cert
           secret:
             defaultMode: 420
             secretName: lws-webhook-server-cert
