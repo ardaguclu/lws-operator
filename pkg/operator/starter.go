@@ -3,8 +3,18 @@ package operator
 import (
 	"context"
 	"os"
+	"time"
+
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/loglevel"
+
+	operatorconfigclient "github.com/openshift/lws-operator/pkg/generated/clientset/versioned"
+	operatorclientinformers "github.com/openshift/lws-operator/pkg/generated/informers/externalversions"
+	"github.com/openshift/lws-operator/pkg/operator/operatorclient"
 )
 
 const (
@@ -14,7 +24,54 @@ const (
 )
 
 func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error {
-	// TODO: implement
+	kubeClient, err := kubernetes.NewForConfig(cc.ProtoKubeConfig)
+	if err != nil {
+		return err
+	}
+
+	dynamicClient, err := dynamic.NewForConfig(cc.ProtoKubeConfig)
+	if err != nil {
+		return err
+	}
+
+	operatorConfigClient, err := operatorconfigclient.NewForConfig(cc.KubeConfig)
+	if err != nil {
+		return err
+	}
+	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
+
+	namespace := getNamespace()
+
+	lwsOperatorClient := &operatorclient.LWSOperatorClient{
+		Ctx:               ctx,
+		SharedInformer:    operatorConfigInformers.LwsOperators().V1alpha1().LwsOperators().Informer(),
+		OperatorClient:    operatorConfigClient.LwsOperatorsV1alpha1(),
+		OperatorNamespace: namespace,
+	}
+
+	targetConfigReconciler := NewTargetConfigReconciler(
+		ctx,
+		os.Getenv("RELATED_IMAGE_OPERAND_IMAGE"),
+		namespace,
+		operatorConfigClient.LwsOperatorsV1alpha1(),
+		operatorConfigInformers.LwsOperators().V1alpha1().LwsOperators(),
+		lwsOperatorClient,
+		dynamicClient,
+		kubeClient,
+		cc.EventRecorder,
+	)
+
+	logLevelController := loglevel.NewClusterOperatorLoggingController(lwsOperatorClient, cc.EventRecorder)
+
+	klog.Infof("Starting informers")
+	operatorConfigInformers.Start(ctx.Done())
+
+	klog.Infof("Starting log level controller")
+	go logLevelController.Run(ctx, 1)
+	klog.Infof("Starting target config reconciler")
+	go targetConfigReconciler.Run(1, ctx.Done())
+
+	<-ctx.Done()
 	return nil
 }
 

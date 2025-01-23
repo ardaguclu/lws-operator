@@ -476,15 +476,13 @@ func (c *TargetConfigReconciler) manageServiceMonitor(lwsOperator *v1alpha1.LwsO
 }
 
 func (c *TargetConfigReconciler) manageDeployments(lwsOperator *v1alpha1.LwsOperator) (*appsv1.Deployment, bool, error) {
-	return nil, false, nil
-	/*required := resourceread.ReadDeploymentV1OrDie(bindata.MustAsset("assets/cli-manager/deployment.yaml"))
-	required.Name = operatorclient.OperandName
-	required.Namespace = cliManager.Namespace
+	required := resourceread.ReadDeploymentV1OrDie(bindata.MustAsset("assets/lws-operator/deployment.yaml"))
+	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1",
+		APIVersion: "operator.openshift.io/v1alpha1",
 		Kind:       "CliManager",
-		Name:       cliManager.Name,
-		UID:        cliManager.UID,
+		Name:       lwsOperator.Name,
+		UID:        lwsOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -497,8 +495,8 @@ func (c *TargetConfigReconciler) manageDeployments(lwsOperator *v1alpha1.LwsOper
 		}
 
 		for i := range required.Spec.Template.Spec.Containers {
-			for pat, img := range images {
-				if required.Spec.Template.Spec.Containers[i].Image == pat {
+			for env, img := range images {
+				if required.Spec.Template.Spec.Containers[i].Image == env {
 					required.Spec.Template.Spec.Containers[i].Image = img
 					break
 				}
@@ -506,21 +504,17 @@ func (c *TargetConfigReconciler) manageDeployments(lwsOperator *v1alpha1.LwsOper
 		}
 	}
 
-	switch cliManager.Spec.LogLevel {
+	switch lwsOperator.Spec.LogLevel {
 	case operatorv1.Normal:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
+		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--zap-log-level=%d", 2))
 	case operatorv1.Debug:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 4))
+		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--zap-log-level=%d", 4))
 	case operatorv1.Trace:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 6))
+		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--zap-log-level=%d", 6))
 	case operatorv1.TraceAll:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 8))
+		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--zap-log-level=%d", 8))
 	default:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
-	}
-
-	if c.insecureHTTP {
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--serve-artifacts-in-http"))
+		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--zap-log-level=%d", 2))
 	}
 
 	return resourceapply.ApplyDeployment(
@@ -528,7 +522,7 @@ func (c *TargetConfigReconciler) manageDeployments(lwsOperator *v1alpha1.LwsOper
 		c.kubeClient.AppsV1(),
 		c.eventRecorder,
 		required,
-		resourcemerge.ExpectedDeploymentGeneration(required, cliManager.Status.Generations))*/
+		resourcemerge.ExpectedDeploymentGeneration(required, lwsOperator.Status.Generations))
 }
 
 // Run starts the kube-scheduler and blocks until stopCh is closed.
