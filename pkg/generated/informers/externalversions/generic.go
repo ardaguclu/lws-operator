@@ -19,7 +19,7 @@ package externalversions
 import (
 	fmt "fmt"
 
-	v1alpha1 "github.com/openshift/lws-operator/pkg/apis/lwsoperator/v1alpha1"
+	v1 "github.com/openshift/lws-operator/pkg/apis/leaderworkersetoperator/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -50,9 +50,9 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=operator.openshift.io, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("lwsoperators"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.LwsOperators().V1alpha1().LwsOperators().Informer()}, nil
+	// Group=operator.openshift.io, Version=v1
+	case v1.SchemeGroupVersion.WithResource("leaderworkersetoperators"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.OpenShiftOperator().V1().LeaderWorkerSetOperators().Informer()}, nil
 
 	}
 

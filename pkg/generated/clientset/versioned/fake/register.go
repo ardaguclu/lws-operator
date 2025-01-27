@@ -17,7 +17,7 @@ limitations under the License.
 package fake
 
 import (
-	lwsoperatorsv1alpha1 "github.com/openshift/lws-operator/pkg/apis/lwsoperator/v1alpha1"
+	openshiftoperatorv1 "github.com/openshift/lws-operator/pkg/apis/leaderworkersetoperator/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,7 +29,7 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
-	lwsoperatorsv1alpha1.AddToScheme,
+	openshiftoperatorv1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

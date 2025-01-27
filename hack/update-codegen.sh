@@ -26,7 +26,7 @@ kube::codegen::gen_helpers \
 
 # NOTE(jchaloup): --applyconfig-openapi-schema needs to point to a valid openapi.json file
 # Steps to generate it:
-# 1. copy paste pkg/apis/lwsoperator/v1alpha1/types_lwsoperator.go under github.com/openshift/api/ under operator/v1 directory (and update the file to remove the cyclic dependency)
+# 1. copy paste pkg/apis/leaderworkersetoperator/v1/types_leaderworkersetoperator.go under github.com/openshift/api/ under operator/v1 directory (and update the file to remove the cyclic dependency)
 # 2. "make update-openapi" under github.com/openshift/api/ repository
 # 3. point --applyconfig-openapi-schema to the regenerated openapi/openapi.json (or copy the file into this repository)
 # 4. "make generate-clients" under this repository

@@ -29739,6 +29739,151 @@
         }
       }
     },
+    "com.github.openshift.api.operator.v1.LeaderWorkerSetOperator": {
+      "description": "LeaderWorkerSetOperator is the Schema for the LeaderWorkerSetOperator API",
+      "type": "object",
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+        },
+        "spec": {
+          "description": "spec holds user settable values for configuration",
+          "default": {},
+          "$ref": "#/definitions/com.github.openshift.api.operator.v1.LeaderWorkerSetOperatorSpec"
+        },
+        "status": {
+          "description": "status holds observed values from the cluster. They may not be overridden.",
+          "default": {},
+          "$ref": "#/definitions/com.github.openshift.api.operator.v1.LeaderWorkerSetOperatorStatus"
+        }
+      }
+    },
+    "com.github.openshift.api.operator.v1.LeaderWorkerSetOperatorList": {
+      "description": "LeaderWorkerSetOperatorList contains a list of LeaderWorkerSetOperator",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/com.github.openshift.api.operator.v1.LeaderWorkerSetOperator"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
+        }
+      }
+    },
+    "com.github.openshift.api.operator.v1.LeaderWorkerSetOperatorSpec": {
+      "description": "LeaderWorkerSetOperatorSpec defines the desired state of LeaderWorkerSetOperator",
+      "type": "object",
+      "required": [
+        "managementState"
+      ],
+      "properties": {
+        "logLevel": {
+          "description": "logLevel is an intent based logging for an overall component.  It does not give fine grained control, but it is a simple way to manage coarse grained logging choices that operators have to interpret for their operands.\n\nValid values are: \"Normal\", \"Debug\", \"Trace\", \"TraceAll\". Defaults to \"Normal\".",
+          "type": "string"
+        },
+        "managementState": {
+          "description": "managementState indicates whether and how the operator should manage the component",
+          "type": "string",
+          "default": ""
+        },
+        "observedConfig": {
+          "description": "observedConfig holds a sparse config that controller has observed from the cluster state.  It exists in spec because it is an input to the level for the operator",
+          "$ref": "#/definitions/io.k8s.apimachinery.pkg.runtime.RawExtension"
+        },
+        "operatorLogLevel": {
+          "description": "operatorLogLevel is an intent based logging for the operator itself.  It does not give fine grained control, but it is a simple way to manage coarse grained logging choices that operators have to interpret for themselves.\n\nValid values are: \"Normal\", \"Debug\", \"Trace\", \"TraceAll\". Defaults to \"Normal\".",
+          "type": "string"
+        },
+        "unsupportedConfigOverrides": {
+          "description": "unsupportedConfigOverrides overrides the final configuration that was computed by the operator. Red Hat does not support the use of this field. Misuse of this field could lead to unexpected behavior or conflict with other configuration options. Seek guidance from the Red Hat support before using this field. Use of this property blocks cluster upgrades, it must be removed before upgrading your cluster.",
+          "$ref": "#/definitions/io.k8s.apimachinery.pkg.runtime.RawExtension"
+        }
+      }
+    },
+    "com.github.openshift.api.operator.v1.LeaderWorkerSetOperatorStatus": {
+      "description": "LeaderWorkerSetOperatorStatus defines the observed state of LeaderWorkerSetOperator",
+      "type": "object",
+      "required": [
+        "readyReplicas"
+      ],
+      "properties": {
+        "conditions": {
+          "description": "conditions is a list of conditions and their status",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/com.github.openshift.api.operator.v1.OperatorCondition"
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "generations": {
+          "description": "generations are used to determine when an item needs to be reconciled or has changed in a way that needs a reaction.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/com.github.openshift.api.operator.v1.GenerationStatus"
+          },
+          "x-kubernetes-list-map-keys": [
+            "group",
+            "resource",
+            "namespace",
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "latestAvailableRevision": {
+          "description": "latestAvailableRevision is the deploymentID of the most recent deployment",
+          "type": "integer",
+          "format": "int32"
+        },
+        "observedGeneration": {
+          "description": "observedGeneration is the last generation change you've dealt with",
+          "type": "integer",
+          "format": "int64"
+        },
+        "readyReplicas": {
+          "description": "readyReplicas indicates how many replicas are ready and at the desired state",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "version": {
+          "description": "version is the level this availability applies to",
+          "type": "string"
+        }
+      }
+    },
     "com.github.openshift.api.operator.v1.LoadBalancerStrategy": {
       "description": "LoadBalancerStrategy holds parameters for a load balancer.",
       "type": "object",
@@ -33121,151 +33266,6 @@
           "description": "vmodule is passed to glog.",
           "type": "string",
           "default": ""
-        }
-      }
-    },
-    "com.github.openshift.api.operator.v1alpha1.LwsOperator": {
-      "description": "LwsOperator is the Schema for the lwsoperator API",
-      "type": "object",
-      "required": [
-        "spec"
-      ],
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "default": {},
-          "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-        },
-        "spec": {
-          "description": "spec holds user settable values for configuration",
-          "default": {},
-          "$ref": "#/definitions/com.github.openshift.api.operator.v1alpha1.LwsOperatorSpec"
-        },
-        "status": {
-          "description": "status holds observed values from the cluster. They may not be overridden.",
-          "default": {},
-          "$ref": "#/definitions/com.github.openshift.api.operator.v1alpha1.LwsOperatorStatus"
-        }
-      }
-    },
-    "com.github.openshift.api.operator.v1alpha1.LwsOperatorList": {
-      "description": "LwsOperatorList contains a list of LwsOperator",
-      "type": "object",
-      "required": [
-        "items"
-      ],
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/com.github.openshift.api.operator.v1alpha1.LwsOperator"
-          }
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "default": {},
-          "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
-        }
-      }
-    },
-    "com.github.openshift.api.operator.v1alpha1.LwsOperatorSpec": {
-      "description": "LwsOperatorSpec defines the desired state of LwsOperator",
-      "type": "object",
-      "required": [
-        "managementState"
-      ],
-      "properties": {
-        "logLevel": {
-          "description": "logLevel is an intent based logging for an overall component.  It does not give fine grained control, but it is a simple way to manage coarse grained logging choices that operators have to interpret for their operands.\n\nValid values are: \"Normal\", \"Debug\", \"Trace\", \"TraceAll\". Defaults to \"Normal\".",
-          "type": "string"
-        },
-        "managementState": {
-          "description": "managementState indicates whether and how the operator should manage the component",
-          "type": "string",
-          "default": ""
-        },
-        "observedConfig": {
-          "description": "observedConfig holds a sparse config that controller has observed from the cluster state.  It exists in spec because it is an input to the level for the operator",
-          "$ref": "#/definitions/io.k8s.apimachinery.pkg.runtime.RawExtension"
-        },
-        "operatorLogLevel": {
-          "description": "operatorLogLevel is an intent based logging for the operator itself.  It does not give fine grained control, but it is a simple way to manage coarse grained logging choices that operators have to interpret for themselves.\n\nValid values are: \"Normal\", \"Debug\", \"Trace\", \"TraceAll\". Defaults to \"Normal\".",
-          "type": "string"
-        },
-        "unsupportedConfigOverrides": {
-          "description": "unsupportedConfigOverrides overrides the final configuration that was computed by the operator. Red Hat does not support the use of this field. Misuse of this field could lead to unexpected behavior or conflict with other configuration options. Seek guidance from the Red Hat support before using this field. Use of this property blocks cluster upgrades, it must be removed before upgrading your cluster.",
-          "$ref": "#/definitions/io.k8s.apimachinery.pkg.runtime.RawExtension"
-        }
-      }
-    },
-    "com.github.openshift.api.operator.v1alpha1.LwsOperatorStatus": {
-      "description": "LwsOperatorStatus defines the observed state of LwsOperator",
-      "type": "object",
-      "required": [
-        "readyReplicas"
-      ],
-      "properties": {
-        "conditions": {
-          "description": "conditions is a list of conditions and their status",
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/com.github.openshift.api.operator.v1.OperatorCondition"
-          },
-          "x-kubernetes-list-map-keys": [
-            "type"
-          ],
-          "x-kubernetes-list-type": "map"
-        },
-        "generations": {
-          "description": "generations are used to determine when an item needs to be reconciled or has changed in a way that needs a reaction.",
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/com.github.openshift.api.operator.v1.GenerationStatus"
-          },
-          "x-kubernetes-list-map-keys": [
-            "group",
-            "resource",
-            "namespace",
-            "name"
-          ],
-          "x-kubernetes-list-type": "map"
-        },
-        "latestAvailableRevision": {
-          "description": "latestAvailableRevision is the deploymentID of the most recent deployment",
-          "type": "integer",
-          "format": "int32"
-        },
-        "observedGeneration": {
-          "description": "observedGeneration is the last generation change you've dealt with",
-          "type": "integer",
-          "format": "int64"
-        },
-        "readyReplicas": {
-          "description": "readyReplicas indicates how many replicas are ready and at the desired state",
-          "type": "integer",
-          "format": "int32",
-          "default": 0
-        },
-        "version": {
-          "description": "version is the level this availability applies to",
-          "type": "string"
         }
       }
     },

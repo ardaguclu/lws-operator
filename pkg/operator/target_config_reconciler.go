@@ -27,50 +27,50 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"github.com/openshift/lws-operator/bindata"
-	"github.com/openshift/lws-operator/pkg/apis/lwsoperator/v1alpha1"
 
-	lwsoperatorv1alpha1 "github.com/openshift/lws-operator/pkg/generated/clientset/versioned/typed/lwsoperator/v1alpha1"
-	operatorclientinformers "github.com/openshift/lws-operator/pkg/generated/informers/externalversions/lwsoperator/v1alpha1"
+	"github.com/openshift/lws-operator/bindata"
+	leaderworkersetapiv1 "github.com/openshift/lws-operator/pkg/apis/leaderworkersetoperator/v1"
+	leaderworkersetoperatorv1clientset "github.com/openshift/lws-operator/pkg/generated/clientset/versioned/typed/leaderworkersetoperator/v1"
+	operatorclientinformers "github.com/openshift/lws-operator/pkg/generated/informers/externalversions/leaderworkersetoperator/v1"
 	"github.com/openshift/lws-operator/pkg/operator/operatorclient"
 )
 
 type TargetConfigReconciler struct {
-	ctx                context.Context
-	targetImage        string
-	operatorClient     lwsoperatorv1alpha1.LwsOperatorsV1alpha1Interface
-	dynamicClient      dynamic.Interface
-	lwsOperatorClient  *operatorclient.LWSOperatorClient
-	kubeClient         kubernetes.Interface
-	apiextensionClient *apiextclientv1.Clientset
-	eventRecorder      events.Recorder
-	queue              workqueue.TypedRateLimitingInterface[string]
-	namespace          string
+	ctx                           context.Context
+	targetImage                   string
+	operatorClient                leaderworkersetoperatorv1clientset.LeaderWorkerSetOperatorInterface
+	dynamicClient                 dynamic.Interface
+	leaderWorkerSetOperatorClient *operatorclient.LeaderWorkerSetClient
+	kubeClient                    kubernetes.Interface
+	apiextensionClient            *apiextclientv1.Clientset
+	eventRecorder                 events.Recorder
+	queue                         workqueue.TypedRateLimitingInterface[string]
+	namespace                     string
 }
 
 func NewTargetConfigReconciler(
 	ctx context.Context,
 	targetImage string,
 	namespace string,
-	operatorConfigClient lwsoperatorv1alpha1.LwsOperatorsV1alpha1Interface,
-	operatorClientInformer operatorclientinformers.LwsOperatorInformer,
-	lwsOperatorClient *operatorclient.LWSOperatorClient,
+	operatorConfigClient leaderworkersetoperatorv1clientset.LeaderWorkerSetOperatorInterface,
+	operatorClientInformer operatorclientinformers.LeaderWorkerSetOperatorInformer,
+	leaderWorkerSetOperatorClient *operatorclient.LeaderWorkerSetClient,
 	dynamicClient dynamic.Interface,
 	kubeClient kubernetes.Interface,
 	apiExtensionClient *apiextclientv1.Clientset,
 	eventRecorder events.Recorder,
 ) *TargetConfigReconciler {
 	c := &TargetConfigReconciler{
-		ctx:                ctx,
-		operatorClient:     operatorConfigClient,
-		dynamicClient:      dynamicClient,
-		lwsOperatorClient:  lwsOperatorClient,
-		kubeClient:         kubeClient,
-		apiextensionClient: apiExtensionClient,
-		eventRecorder:      eventRecorder,
-		queue:              workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[string](), workqueue.TypedRateLimitingQueueConfig[string]{Name: "TargetConfigReconciler"}),
-		targetImage:        targetImage,
-		namespace:          namespace,
+		ctx:                           ctx,
+		operatorClient:                operatorConfigClient,
+		dynamicClient:                 dynamicClient,
+		leaderWorkerSetOperatorClient: leaderWorkerSetOperatorClient,
+		kubeClient:                    kubeClient,
+		apiextensionClient:            apiExtensionClient,
+		eventRecorder:                 eventRecorder,
+		queue:                         workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[string](), workqueue.TypedRateLimitingQueueConfig[string]{Name: "TargetConfigReconciler"}),
+		targetImage:                   targetImage,
+		namespace:                     namespace,
 	}
 
 	operatorClientInformer.Informer().AddEventHandler(c.eventHandler())
@@ -79,127 +79,127 @@ func NewTargetConfigReconciler(
 }
 
 func (c *TargetConfigReconciler) sync() error {
-	lwsOperator, err := c.operatorClient.LwsOperators(c.namespace).Get(c.ctx, operatorclient.OperatorConfigName, metav1.GetOptions{})
+	leaderWorkerSetOperator, err := c.operatorClient.Get(c.ctx, operatorclient.OperatorConfigName, metav1.GetOptions{})
 	if err != nil {
 		klog.ErrorS(err, "unable to get operator configuration", "namespace", c.namespace, "openshift-lws-operator", operatorclient.OperatorConfigName)
 		return err
 	}
 
-	_, _, err = c.manageClusterRoleManager(lwsOperator)
+	_, _, err = c.manageClusterRoleManager(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage manager cluster role err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageClusterRoleMetrics(lwsOperator)
+	_, _, err = c.manageClusterRoleMetrics(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage metrics cluster role err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageClusterRoleProxy(lwsOperator)
+	_, _, err = c.manageClusterRoleProxy(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage proxy cluster role err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageClusterRoleBindingManager(lwsOperator)
+	_, _, err = c.manageClusterRoleBindingManager(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage manager cluster role binding err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageClusterRoleBindingMetrics(lwsOperator)
+	_, _, err = c.manageClusterRoleBindingMetrics(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage metrics cluster role binding err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageClusterRoleBindingProxy(lwsOperator)
+	_, _, err = c.manageClusterRoleBindingProxy(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage proxy cluster role binding err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageRole(lwsOperator)
+	_, _, err = c.manageRole(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage cluster role err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageRoleMonitoring(lwsOperator)
+	_, _, err = c.manageRoleMonitoring(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage cluster role err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageRoleBinding(lwsOperator)
+	_, _, err = c.manageRoleBinding(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage cluster role binding err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageRoleBindingMonitoring(lwsOperator)
+	_, _, err = c.manageRoleBindingMonitoring(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage cluster role binding err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageConfigmap(lwsOperator)
+	_, _, err = c.manageConfigmap(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage configmap err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageCustomResourceDefinition(lwsOperator)
+	_, _, err = c.manageCustomResourceDefinition(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage leaderworkerset CRD err: %v", err)
 		return err
 	}
 
-	deployment, _, err := c.manageDeployments(lwsOperator)
+	deployment, _, err := c.manageDeployments(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage deployment err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageServiceAccount(lwsOperator)
+	_, _, err = c.manageServiceAccount(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage service account err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageServiceController(lwsOperator)
+	_, _, err = c.manageServiceController(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage service err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageServiceWebhook(lwsOperator)
+	_, _, err = c.manageServiceWebhook(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage service err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageMutatingWebhook(lwsOperator)
+	_, _, err = c.manageMutatingWebhook(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage service err: %v", err)
 		return err
 	}
 
-	_, _, err = c.manageValidatingWebhook(lwsOperator)
+	_, _, err = c.manageValidatingWebhook(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage service err: %v", err)
 		return err
 	}
 
-	_, err = c.manageServiceMonitor(lwsOperator)
+	_, err = c.manageServiceMonitor(leaderWorkerSetOperator)
 	if err != nil {
 		klog.Errorf("unable to manage service account err: %v", err)
 		return err
 	}
 
-	_, _, err = v1helpers.UpdateStatus(c.ctx, c.lwsOperatorClient, func(status *operatorv1.OperatorStatus) error {
+	_, _, err = v1helpers.UpdateStatus(c.ctx, c.leaderWorkerSetOperatorClient, func(status *operatorv1.OperatorStatus) error {
 		resourcemerge.SetDeploymentGeneration(&status.Generations, deployment)
 		return nil
 	})
@@ -207,14 +207,14 @@ func (c *TargetConfigReconciler) sync() error {
 	return err
 }
 
-func (c *TargetConfigReconciler) manageConfigmap(lwsOperator *v1alpha1.LwsOperator) (*v1.ConfigMap, bool, error) {
+func (c *TargetConfigReconciler) manageConfigmap(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*v1.ConfigMap, bool, error) {
 	required := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/lws-operator/configmap.yaml"))
 	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -224,14 +224,14 @@ func (c *TargetConfigReconciler) manageConfigmap(lwsOperator *v1alpha1.LwsOperat
 	return resourceapply.ApplyConfigMap(c.ctx, c.kubeClient.CoreV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageRole(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.Role, bool, error) {
+func (c *TargetConfigReconciler) manageRole(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.Role, bool, error) {
 	required := resourceread.ReadRoleV1OrDie(bindata.MustAsset("assets/lws-operator/role.yaml"))
 	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -241,14 +241,14 @@ func (c *TargetConfigReconciler) manageRole(lwsOperator *v1alpha1.LwsOperator) (
 	return resourceapply.ApplyRole(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageRoleMonitoring(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.Role, bool, error) {
+func (c *TargetConfigReconciler) manageRoleMonitoring(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.Role, bool, error) {
 	required := resourceread.ReadRoleV1OrDie(bindata.MustAsset("assets/lws-operator/role_prometheus.yaml"))
 	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -258,14 +258,14 @@ func (c *TargetConfigReconciler) manageRoleMonitoring(lwsOperator *v1alpha1.LwsO
 	return resourceapply.ApplyRole(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageRoleBinding(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.RoleBinding, bool, error) {
+func (c *TargetConfigReconciler) manageRoleBinding(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.RoleBinding, bool, error) {
 	required := resourceread.ReadRoleBindingV1OrDie(bindata.MustAsset("assets/lws-operator/rolebinding.yaml"))
 	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -279,14 +279,14 @@ func (c *TargetConfigReconciler) manageRoleBinding(lwsOperator *v1alpha1.LwsOper
 	return resourceapply.ApplyRoleBinding(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageRoleBindingMonitoring(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.RoleBinding, bool, error) {
+func (c *TargetConfigReconciler) manageRoleBindingMonitoring(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.RoleBinding, bool, error) {
 	required := resourceread.ReadRoleBindingV1OrDie(bindata.MustAsset("assets/lws-operator/rolebinding_prometheus.yaml"))
 	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -296,13 +296,13 @@ func (c *TargetConfigReconciler) manageRoleBindingMonitoring(lwsOperator *v1alph
 	return resourceapply.ApplyRoleBinding(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageClusterRoleManager(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRole, bool, error) {
+func (c *TargetConfigReconciler) manageClusterRoleManager(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.ClusterRole, bool, error) {
 	required := resourceread.ReadClusterRoleV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrole_manager.yaml"))
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -312,13 +312,13 @@ func (c *TargetConfigReconciler) manageClusterRoleManager(lwsOperator *v1alpha1.
 	return resourceapply.ApplyClusterRole(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageClusterRoleMetrics(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRole, bool, error) {
+func (c *TargetConfigReconciler) manageClusterRoleMetrics(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.ClusterRole, bool, error) {
 	required := resourceread.ReadClusterRoleV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrole_metrics.yaml"))
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -328,13 +328,13 @@ func (c *TargetConfigReconciler) manageClusterRoleMetrics(lwsOperator *v1alpha1.
 	return resourceapply.ApplyClusterRole(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageClusterRoleProxy(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRole, bool, error) {
+func (c *TargetConfigReconciler) manageClusterRoleProxy(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.ClusterRole, bool, error) {
 	required := resourceread.ReadClusterRoleV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrole_proxy.yaml"))
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -344,13 +344,13 @@ func (c *TargetConfigReconciler) manageClusterRoleProxy(lwsOperator *v1alpha1.Lw
 	return resourceapply.ApplyClusterRole(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageClusterRoleBindingManager(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRoleBinding, bool, error) {
+func (c *TargetConfigReconciler) manageClusterRoleBindingManager(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.ClusterRoleBinding, bool, error) {
 	required := resourceread.ReadClusterRoleBindingV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrolebinding_manager.yaml"))
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -364,13 +364,13 @@ func (c *TargetConfigReconciler) manageClusterRoleBindingManager(lwsOperator *v1
 	return resourceapply.ApplyClusterRoleBinding(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageClusterRoleBindingMetrics(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRoleBinding, bool, error) {
+func (c *TargetConfigReconciler) manageClusterRoleBindingMetrics(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.ClusterRoleBinding, bool, error) {
 	required := resourceread.ReadClusterRoleBindingV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrolebinding_metrics.yaml"))
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -384,13 +384,13 @@ func (c *TargetConfigReconciler) manageClusterRoleBindingMetrics(lwsOperator *v1
 	return resourceapply.ApplyClusterRoleBinding(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageClusterRoleBindingProxy(lwsOperator *v1alpha1.LwsOperator) (*rbacv1.ClusterRoleBinding, bool, error) {
+func (c *TargetConfigReconciler) manageClusterRoleBindingProxy(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*rbacv1.ClusterRoleBinding, bool, error) {
 	required := resourceread.ReadClusterRoleBindingV1OrDie(bindata.MustAsset("assets/lws-operator/clusterrolebinding_proxy.yaml"))
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -404,14 +404,14 @@ func (c *TargetConfigReconciler) manageClusterRoleBindingProxy(lwsOperator *v1al
 	return resourceapply.ApplyClusterRoleBinding(c.ctx, c.kubeClient.RbacV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageServiceController(lwsOperator *v1alpha1.LwsOperator) (*v1.Service, bool, error) {
+func (c *TargetConfigReconciler) manageServiceController(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*v1.Service, bool, error) {
 	required := resourceread.ReadServiceV1OrDie(bindata.MustAsset("assets/lws-operator/service_controller.yaml"))
 	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -421,14 +421,14 @@ func (c *TargetConfigReconciler) manageServiceController(lwsOperator *v1alpha1.L
 	return resourceapply.ApplyService(c.ctx, c.kubeClient.CoreV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageServiceWebhook(lwsOperator *v1alpha1.LwsOperator) (*v1.Service, bool, error) {
+func (c *TargetConfigReconciler) manageServiceWebhook(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*v1.Service, bool, error) {
 	required := resourceread.ReadServiceV1OrDie(bindata.MustAsset("assets/lws-operator/service_webhook.yaml"))
 	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -438,14 +438,14 @@ func (c *TargetConfigReconciler) manageServiceWebhook(lwsOperator *v1alpha1.LwsO
 	return resourceapply.ApplyService(c.ctx, c.kubeClient.CoreV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageServiceAccount(lwsOperator *v1alpha1.LwsOperator) (*v1.ServiceAccount, bool, error) {
+func (c *TargetConfigReconciler) manageServiceAccount(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*v1.ServiceAccount, bool, error) {
 	required := resourceread.ReadServiceAccountV1OrDie(bindata.MustAsset("assets/lws-operator/serviceaccount.yaml"))
 	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -455,13 +455,13 @@ func (c *TargetConfigReconciler) manageServiceAccount(lwsOperator *v1alpha1.LwsO
 	return resourceapply.ApplyServiceAccount(c.ctx, c.kubeClient.CoreV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageCustomResourceDefinition(lwsOperator *v1alpha1.LwsOperator) (*apiextensionv1.CustomResourceDefinition, bool, error) {
+func (c *TargetConfigReconciler) manageCustomResourceDefinition(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*apiextensionv1.CustomResourceDefinition, bool, error) {
 	required := resourceread.ReadCustomResourceDefinitionV1OrDie(bindata.MustAsset("assets/lws-operator/leaderworkerset.x-k8s.io_leaderworkersets.yaml"))
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -478,13 +478,13 @@ func (c *TargetConfigReconciler) manageCustomResourceDefinition(lwsOperator *v1a
 	return resourceapply.ApplyCustomResourceDefinitionV1(c.ctx, c.apiextensionClient.ApiextensionsV1(), c.eventRecorder, required)
 }
 
-func (c *TargetConfigReconciler) manageMutatingWebhook(lwsOperator *v1alpha1.LwsOperator) (*admissionv1.MutatingWebhookConfiguration, bool, error) {
+func (c *TargetConfigReconciler) manageMutatingWebhook(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*admissionv1.MutatingWebhookConfiguration, bool, error) {
 	required := resourceread.ReadMutatingWebhookConfigurationV1OrDie(bindata.MustAsset("assets/lws-operator/mutatingwebhook.yaml"))
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -500,13 +500,13 @@ func (c *TargetConfigReconciler) manageMutatingWebhook(lwsOperator *v1alpha1.Lws
 	return resourceapply.ApplyMutatingWebhookConfigurationImproved(c.ctx, c.kubeClient.AdmissionregistrationV1(), c.eventRecorder, required, resourceapply.NewResourceCache())
 }
 
-func (c *TargetConfigReconciler) manageValidatingWebhook(lwsOperator *v1alpha1.LwsOperator) (*admissionv1.ValidatingWebhookConfiguration, bool, error) {
+func (c *TargetConfigReconciler) manageValidatingWebhook(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*admissionv1.ValidatingWebhookConfiguration, bool, error) {
 	required := resourceread.ReadValidatingWebhookConfigurationV1OrDie(bindata.MustAsset("assets/lws-operator/validatingwebhook.yaml"))
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "LwsOperator",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -522,21 +522,21 @@ func (c *TargetConfigReconciler) manageValidatingWebhook(lwsOperator *v1alpha1.L
 	return resourceapply.ApplyValidatingWebhookConfigurationImproved(c.ctx, c.kubeClient.AdmissionregistrationV1(), c.eventRecorder, required, resourceapply.NewResourceCache())
 }
 
-func (c *TargetConfigReconciler) manageServiceMonitor(lwsOperator *v1alpha1.LwsOperator) (bool, error) {
+func (c *TargetConfigReconciler) manageServiceMonitor(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (bool, error) {
 	required := resourceread.ReadUnstructuredOrDie(bindata.MustAsset("assets/lws-operator/servicemonitor.yaml"))
 	required.SetNamespace(c.namespace)
 	_, changed, err := resourceapply.ApplyKnownUnstructured(c.ctx, c.dynamicClient, c.eventRecorder, required)
 	return changed, err
 }
 
-func (c *TargetConfigReconciler) manageDeployments(lwsOperator *v1alpha1.LwsOperator) (*appsv1.Deployment, bool, error) {
+func (c *TargetConfigReconciler) manageDeployments(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*appsv1.Deployment, bool, error) {
 	required := resourceread.ReadDeploymentV1OrDie(bindata.MustAsset("assets/lws-operator/deployment.yaml"))
 	required.Namespace = c.namespace
 	ownerReference := metav1.OwnerReference{
-		APIVersion: "operator.openshift.io/v1alpha1",
-		Kind:       "CliManager",
-		Name:       lwsOperator.Name,
-		UID:        lwsOperator.UID,
+		APIVersion: "operator.openshift.io/v1",
+		Kind:       "LeaderWorkerSetOperator",
+		Name:       leaderWorkerSetOperator.Name,
+		UID:        leaderWorkerSetOperator.UID,
 	}
 	required.OwnerReferences = []metav1.OwnerReference{
 		ownerReference,
@@ -558,7 +558,7 @@ func (c *TargetConfigReconciler) manageDeployments(lwsOperator *v1alpha1.LwsOper
 		}
 	}
 
-	switch lwsOperator.Spec.LogLevel {
+	switch leaderWorkerSetOperator.Spec.LogLevel {
 	case operatorv1.Normal:
 		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--zap-log-level=%d", 2))
 	case operatorv1.Debug:
@@ -576,7 +576,7 @@ func (c *TargetConfigReconciler) manageDeployments(lwsOperator *v1alpha1.LwsOper
 		c.kubeClient.AppsV1(),
 		c.eventRecorder,
 		required,
-		resourcemerge.ExpectedDeploymentGeneration(required, lwsOperator.Status.Generations))
+		resourcemerge.ExpectedDeploymentGeneration(required, leaderWorkerSetOperator.Status.Generations))
 }
 
 // Run starts the kube-scheduler and blocks until stopCh is closed.

@@ -23,7 +23,7 @@ import (
 
 	versioned "github.com/openshift/lws-operator/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/openshift/lws-operator/pkg/generated/informers/externalversions/internalinterfaces"
-	lwsoperator "github.com/openshift/lws-operator/pkg/generated/informers/externalversions/lwsoperator"
+	leaderworkersetoperator "github.com/openshift/lws-operator/pkg/generated/informers/externalversions/leaderworkersetoperator"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -252,9 +252,9 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
-	LwsOperators() lwsoperator.Interface
+	OpenShiftOperator() leaderworkersetoperator.Interface
 }
 
-func (f *sharedInformerFactory) LwsOperators() lwsoperator.Interface {
-	return lwsoperator.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) OpenShiftOperator() leaderworkersetoperator.Interface {
+	return leaderworkersetoperator.New(f, f.namespace, f.tweakListOptions)
 }

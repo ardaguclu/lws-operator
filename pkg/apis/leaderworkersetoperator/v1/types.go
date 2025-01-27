@@ -1,4 +1,4 @@
-package v1alpha1
+package v1
 
 import (
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -7,38 +7,38 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// LwsOperator is the Schema for the lwsoperator API
+// LeaderWorkerSetOperator is the Schema for the LeaderWorkerSetOperator API
 // +k8s:openapi-gen=true
 // +genclient
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
-type LwsOperator struct {
+type LeaderWorkerSetOperator struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds user settable values for configuration
 	// +required
-	Spec LwsOperatorSpec `json:"spec"`
+	Spec LeaderWorkerSetOperatorSpec `json:"spec"`
 	// status holds observed values from the cluster. They may not be overridden.
 	// +optional
-	Status LwsOperatorStatus `json:"status"`
+	Status LeaderWorkerSetOperatorStatus `json:"status"`
 }
 
-// LwsOperatorSpec defines the desired state of LwsOperator
-type LwsOperatorSpec struct {
+// LeaderWorkerSetOperatorSpec defines the desired state of LeaderWorkerSetOperator
+type LeaderWorkerSetOperatorSpec struct {
 	operatorv1.OperatorSpec `json:",inline"`
 }
 
-// LwsOperatorStatus defines the observed state of LwsOperator
-type LwsOperatorStatus struct {
+// LeaderWorkerSetOperatorStatus defines the observed state of LeaderWorkerSetOperator
+type LeaderWorkerSetOperatorStatus struct {
 	operatorv1.OperatorStatus `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// LwsOperatorList contains a list of LwsOperator
-type LwsOperatorList struct {
+// LeaderWorkerSetOperatorList contains a list of LeaderWorkerSetOperator
+type LeaderWorkerSetOperatorList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []LwsOperator `json:"items"`
+	Items           []LeaderWorkerSetOperator `json:"items"`
 }

@@ -17,22 +17,22 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "github.com/openshift/lws-operator/pkg/generated/clientset/versioned/typed/lwsoperator/v1alpha1"
+	v1 "github.com/openshift/lws-operator/pkg/generated/clientset/versioned/typed/leaderworkersetoperator/v1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeLwsOperatorsV1alpha1 struct {
+type FakeOpenShiftOperatorV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeLwsOperatorsV1alpha1) LwsOperators(namespace string) v1alpha1.LwsOperatorInterface {
-	return newFakeLwsOperators(c, namespace)
+func (c *FakeOpenShiftOperatorV1) LeaderWorkerSetOperators(namespace string) v1.LeaderWorkerSetOperatorInterface {
+	return newFakeLeaderWorkerSetOperators(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeLwsOperatorsV1alpha1) RESTClient() rest.Interface {
+func (c *FakeOpenShiftOperatorV1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

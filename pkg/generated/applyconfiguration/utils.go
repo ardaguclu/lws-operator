@@ -17,9 +17,9 @@ limitations under the License.
 package applyconfiguration
 
 import (
-	v1alpha1 "github.com/openshift/lws-operator/pkg/apis/lwsoperator/v1alpha1"
+	v1 "github.com/openshift/lws-operator/pkg/apis/leaderworkersetoperator/v1"
 	internal "github.com/openshift/lws-operator/pkg/generated/applyconfiguration/internal"
-	lwsoperatorv1alpha1 "github.com/openshift/lws-operator/pkg/generated/applyconfiguration/lwsoperator/v1alpha1"
+	leaderworkersetoperatorv1 "github.com/openshift/lws-operator/pkg/generated/applyconfiguration/leaderworkersetoperator/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	testing "k8s.io/client-go/testing"
@@ -29,13 +29,13 @@ import (
 // apply configuration type exists for the given GroupVersionKind.
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
-	// Group=operator.openshift.io, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithKind("LwsOperator"):
-		return &lwsoperatorv1alpha1.LwsOperatorApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("LwsOperatorSpec"):
-		return &lwsoperatorv1alpha1.LwsOperatorSpecApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("LwsOperatorStatus"):
-		return &lwsoperatorv1alpha1.LwsOperatorStatusApplyConfiguration{}
+	// Group=operator.openshift.io, Version=v1
+	case v1.SchemeGroupVersion.WithKind("LeaderWorkerSetOperator"):
+		return &leaderworkersetoperatorv1.LeaderWorkerSetOperatorApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("LeaderWorkerSetOperatorSpec"):
+		return &leaderworkersetoperatorv1.LeaderWorkerSetOperatorSpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("LeaderWorkerSetOperatorStatus"):
+		return &leaderworkersetoperatorv1.LeaderWorkerSetOperatorStatusApplyConfiguration{}
 
 	}
 	return nil

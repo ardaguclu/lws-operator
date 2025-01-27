@@ -1,5 +1,5 @@
 apiVersion: operator.openshift.io/v1alpha1
-kind: LwsOperator
+kind: LeaderWorkerSetOperator
 metadata:
   name: cluster
   namespace: openshift-lws-operator

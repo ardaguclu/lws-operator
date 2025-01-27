@@ -48,10 +48,10 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 
 	namespace := getNamespace()
 
-	lwsOperatorClient := &operatorclient.LWSOperatorClient{
+	leaderWorkerSetOperatorClient := &operatorclient.LeaderWorkerSetClient{
 		Ctx:               ctx,
-		SharedInformer:    operatorConfigInformers.LwsOperators().V1alpha1().LwsOperators().Informer(),
-		OperatorClient:    operatorConfigClient.LwsOperatorsV1alpha1(),
+		SharedInformer:    operatorConfigInformers.OpenShiftOperator().V1().LeaderWorkerSetOperators().Informer(),
+		OperatorClient:    operatorConfigClient.OpenShiftOperatorV1().LeaderWorkerSetOperators(namespace),
 		OperatorNamespace: namespace,
 	}
 
@@ -59,16 +59,16 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		ctx,
 		os.Getenv("RELATED_IMAGE_OPERAND_IMAGE"),
 		namespace,
-		operatorConfigClient.LwsOperatorsV1alpha1(),
-		operatorConfigInformers.LwsOperators().V1alpha1().LwsOperators(),
-		lwsOperatorClient,
+		operatorConfigClient.OpenShiftOperatorV1().LeaderWorkerSetOperators(namespace),
+		operatorConfigInformers.OpenShiftOperator().V1().LeaderWorkerSetOperators(),
+		leaderWorkerSetOperatorClient,
 		dynamicClient,
 		kubeClient,
 		apiextensionClient,
 		cc.EventRecorder,
 	)
 
-	logLevelController := loglevel.NewClusterOperatorLoggingController(lwsOperatorClient, cc.EventRecorder)
+	logLevelController := loglevel.NewClusterOperatorLoggingController(leaderWorkerSetOperatorClient, cc.EventRecorder)
 
 	klog.Infof("Starting informers")
 	operatorConfigInformers.Start(ctx.Done())

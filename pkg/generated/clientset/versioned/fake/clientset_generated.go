@@ -19,8 +19,8 @@ package fake
 import (
 	applyconfiguration "github.com/openshift/lws-operator/pkg/generated/applyconfiguration"
 	clientset "github.com/openshift/lws-operator/pkg/generated/clientset/versioned"
-	lwsoperatorsv1alpha1 "github.com/openshift/lws-operator/pkg/generated/clientset/versioned/typed/lwsoperator/v1alpha1"
-	fakelwsoperatorsv1alpha1 "github.com/openshift/lws-operator/pkg/generated/clientset/versioned/typed/lwsoperator/v1alpha1/fake"
+	openshiftoperatorv1 "github.com/openshift/lws-operator/pkg/generated/clientset/versioned/typed/leaderworkersetoperator/v1"
+	fakeopenshiftoperatorv1 "github.com/openshift/lws-operator/pkg/generated/clientset/versioned/typed/leaderworkersetoperator/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -114,7 +114,7 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// LwsOperatorsV1alpha1 retrieves the LwsOperatorsV1alpha1Client
-func (c *Clientset) LwsOperatorsV1alpha1() lwsoperatorsv1alpha1.LwsOperatorsV1alpha1Interface {
-	return &fakelwsoperatorsv1alpha1.FakeLwsOperatorsV1alpha1{Fake: &c.Fake}
+// OpenShiftOperatorV1 retrieves the OpenShiftOperatorV1Client
+func (c *Clientset) OpenShiftOperatorV1() openshiftoperatorv1.OpenShiftOperatorV1Interface {
+	return &fakeopenshiftoperatorv1.FakeOpenShiftOperatorV1{Fake: &c.Fake}
 }
