@@ -1,6 +1,6 @@
 // NOTE: Boilerplate only.  Ignore this file.
 
-// Package v1alpha1 contains API Schema definitions for the LeaderWorkerSetOperator v1 API group
+// Package v1alpha1 contains API Schema definitions for the OpenShiftOperator v1 API group
 // +k8s:deepcopy-gen=package,register
 // +groupName=operator.openshift.io
 package v1
