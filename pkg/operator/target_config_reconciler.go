@@ -11,8 +11,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextclientv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,7 +26,6 @@ import (
 	"github.com/openshift/library-go/pkg/controller"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -507,7 +504,7 @@ func (c *TargetConfigReconciler) manageIssuerCR(leaderWorkerSetOperator *leaderw
 		},
 	}
 
-	return applyUnstructured(c.ctx, c.dynamicClient, c.namespace, "selfsigned", required, gvr, c.eventRecorder)
+	return resourceapply.ApplyUnstructuredResourceImproved(c.ctx, c.dynamicClient, c.eventRecorder, required, resourceapply.NewResourceCache(), gvr, nil, nil)
 }
 
 func (c *TargetConfigReconciler) manageCertificateMetricsCR(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*unstructured.Unstructured, bool, error) {
@@ -545,7 +542,7 @@ func (c *TargetConfigReconciler) manageCertificateMetricsCR(leaderWorkerSetOpera
 		},
 	}
 
-	return applyUnstructured(c.ctx, c.dynamicClient, c.namespace, "manager-cert", required, gvr, c.eventRecorder)
+	return resourceapply.ApplyUnstructuredResourceImproved(c.ctx, c.dynamicClient, c.eventRecorder, required, resourceapply.NewResourceCache(), gvr, nil, nil)
 }
 
 func (c *TargetConfigReconciler) manageCertificateWebhookCR(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*unstructured.Unstructured, bool, error) {
@@ -583,7 +580,7 @@ func (c *TargetConfigReconciler) manageCertificateWebhookCR(leaderWorkerSetOpera
 		},
 	}
 
-	return applyUnstructured(c.ctx, c.dynamicClient, c.namespace, "webhook-cert", required, gvr, c.eventRecorder)
+	return resourceapply.ApplyUnstructuredResourceImproved(c.ctx, c.dynamicClient, c.eventRecorder, required, resourceapply.NewResourceCache(), gvr, nil, nil)
 }
 
 func (c *TargetConfigReconciler) manageCustomResourceDefinition(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*apiextensionv1.CustomResourceDefinition, bool, error) {
@@ -729,64 +726,6 @@ func (c *TargetConfigReconciler) manageDeployments(leaderWorkerSetOperator *lead
 		c.eventRecorder,
 		required,
 		resourcemerge.ExpectedDeploymentGeneration(required, leaderWorkerSetOperator.Status.Generations))
-}
-
-func applyUnstructured(ctx context.Context,
-	dynamicClient dynamic.Interface,
-	ns string,
-	name string,
-	required *unstructured.Unstructured,
-	gvr schema.GroupVersionResource,
-	recorder events.Recorder) (*unstructured.Unstructured, bool, error) {
-	namespacedClient := dynamicClient.Resource(gvr).Namespace(ns)
-
-	existing, err := namespacedClient.Get(ctx, name, metav1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		want, errCreate := namespacedClient.Create(ctx, required, metav1.CreateOptions{})
-		resourcehelper.ReportCreateEvent(recorder, required, errCreate)
-		return want, true, errCreate
-	}
-	if err != nil {
-		return nil, false, err
-	}
-
-	existingCopy := existing.DeepCopy()
-
-	// Replace and/or merge certain metadata fields.
-	didMetadataModify := false
-	err = resourcemerge.EnsureObjectMetaForUnstructured(&didMetadataModify, existingCopy, required)
-	if err != nil {
-		return nil, false, err
-	}
-
-	requiredSpec, _, err := unstructured.NestedMap(required.UnstructuredContent(), "spec")
-	if err != nil {
-		return nil, false, err
-	}
-	existingSpec, _, err := unstructured.NestedMap(existingCopy.UnstructuredContent(), "spec")
-	if err != nil {
-		return nil, false, err
-	}
-
-	didSpecModify := false
-	if !equality.Semantic.DeepEqual(existingSpec, requiredSpec) {
-		if err = unstructured.SetNestedMap(existingCopy.UnstructuredContent(), requiredSpec, "spec"); err != nil {
-			return nil, false, err
-		}
-		didSpecModify = true
-	}
-
-	if !didSpecModify && !didMetadataModify {
-		return existingCopy, false, nil
-	}
-
-	// Perform update if resource exists but different from the required (desired) one.
-	if klog.V(4).Enabled() {
-		klog.Infof("%s %q changes: %v", gvr.String(), ns+"/"+name, resourceapply.JSONPatchNoError(existing, existingCopy))
-	}
-	actual, errUpdate := namespacedClient.Update(ctx, existingCopy, metav1.UpdateOptions{})
-	resourcehelper.ReportUpdateEvent(recorder, existingCopy, errUpdate)
-	return actual, true, errUpdate
 }
 
 // Run starts the kube-scheduler and blocks until stopCh is closed.
