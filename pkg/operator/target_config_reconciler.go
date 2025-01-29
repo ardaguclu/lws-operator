@@ -11,11 +11,13 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextclientv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -43,6 +45,7 @@ type TargetConfigReconciler struct {
 	operatorClient                leaderworkersetoperatorv1clientset.LeaderWorkerSetOperatorInterface
 	dynamicClient                 dynamic.Interface
 	leaderWorkerSetOperatorClient *operatorclient.LeaderWorkerSetClient
+	discoveryClient               discovery.DiscoveryInterface
 	kubeClient                    kubernetes.Interface
 	apiextensionClient            *apiextclientv1.Clientset
 	eventRecorder                 events.Recorder
@@ -57,6 +60,7 @@ func NewTargetConfigReconciler(
 	operatorConfigClient leaderworkersetoperatorv1clientset.LeaderWorkerSetOperatorInterface,
 	operatorClientInformer operatorclientinformers.LeaderWorkerSetOperatorInformer,
 	leaderWorkerSetOperatorClient *operatorclient.LeaderWorkerSetClient,
+	discoveryClient discovery.DiscoveryInterface,
 	dynamicClient dynamic.Interface,
 	kubeClient kubernetes.Interface,
 	apiExtensionClient *apiextclientv1.Clientset,
@@ -67,6 +71,7 @@ func NewTargetConfigReconciler(
 		operatorClient:                operatorConfigClient,
 		dynamicClient:                 dynamicClient,
 		leaderWorkerSetOperatorClient: leaderWorkerSetOperatorClient,
+		discoveryClient:               discoveryClient,
 		kubeClient:                    kubeClient,
 		apiextensionClient:            apiExtensionClient,
 		eventRecorder:                 eventRecorder,
@@ -81,6 +86,20 @@ func NewTargetConfigReconciler(
 }
 
 func (c *TargetConfigReconciler) sync() error {
+	found, err := isResourceRegistered(c.discoveryClient, schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "Issuer",
+	})
+	if err != nil {
+		klog.Errorf("unable to check cert-manager is installed: %v", err)
+		return err
+	}
+	if !found {
+		klog.Errorf("please make sure that cert-manager is installed")
+		return fmt.Errorf("please make sure that cert-manager is installed on your cluster")
+	}
+
 	leaderWorkerSetOperator, err := c.operatorClient.Get(c.ctx, operatorclient.OperatorConfigName, metav1.GetOptions{})
 	if err != nil {
 		klog.ErrorS(err, "unable to get operator configuration", "namespace", c.namespace, "openshift-lws-operator", operatorclient.OperatorConfigName)
@@ -492,7 +511,7 @@ func (c *TargetConfigReconciler) manageIssuerCR(leaderWorkerSetOperator *leaderw
 						"apiVersion": "operator.openshift.io/v1",
 						"kind":       "LeaderWorkerSetOperator",
 						"name":       leaderWorkerSetOperator.Name,
-						"uid":        leaderWorkerSetOperator.UID,
+						"uid":        string(leaderWorkerSetOperator.UID),
 					},
 				},
 				"name":      "selfsigned",
@@ -524,7 +543,7 @@ func (c *TargetConfigReconciler) manageCertificateMetricsCR(leaderWorkerSetOpera
 						"apiVersion": "operator.openshift.io/v1",
 						"kind":       "LeaderWorkerSetOperator",
 						"name":       leaderWorkerSetOperator.Name,
-						"uid":        leaderWorkerSetOperator.UID,
+						"uid":        string(leaderWorkerSetOperator.UID),
 					},
 				},
 				"name":      "manager-cert",
@@ -532,7 +551,7 @@ func (c *TargetConfigReconciler) manageCertificateMetricsCR(leaderWorkerSetOpera
 			},
 			"spec": map[string]interface{}{
 				"secretName": "lws-manager-server-cert",
-				"dnsName": []interface{}{
+				"dnsNames": []interface{}{
 					"lws-controller-manager-metrics-service.openshift-lws-operator.svc",
 				},
 				"issuerRef": map[string]interface{}{
@@ -562,7 +581,7 @@ func (c *TargetConfigReconciler) manageCertificateWebhookCR(leaderWorkerSetOpera
 						"apiVersion": "operator.openshift.io/v1",
 						"kind":       "LeaderWorkerSetOperator",
 						"name":       leaderWorkerSetOperator.Name,
-						"uid":        leaderWorkerSetOperator.UID,
+						"uid":        string(leaderWorkerSetOperator.UID),
 					},
 				},
 				"name":      "webhook-cert",
@@ -570,7 +589,7 @@ func (c *TargetConfigReconciler) manageCertificateWebhookCR(leaderWorkerSetOpera
 			},
 			"spec": map[string]interface{}{
 				"secretName": "lws-webhook-server-cert",
-				"dnsName": []interface{}{
+				"dnsNames": []interface{}{
 					"lws-webhook-service.openshift-lws-operator.svc",
 				},
 				"issuerRef": map[string]interface{}{
@@ -726,6 +745,22 @@ func (c *TargetConfigReconciler) manageDeployments(leaderWorkerSetOperator *lead
 		c.eventRecorder,
 		required,
 		resourcemerge.ExpectedDeploymentGeneration(required, leaderWorkerSetOperator.Status.Generations))
+}
+
+func isResourceRegistered(discoveryClient discovery.DiscoveryInterface, gvk schema.GroupVersionKind) (bool, error) {
+	apiResourceLists, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	for _, apiResource := range apiResourceLists.APIResources {
+		if apiResource.Kind == gvk.Kind {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Run starts the kube-scheduler and blocks until stopCh is closed.
