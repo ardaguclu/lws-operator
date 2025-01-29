@@ -2,10 +2,14 @@ package operator
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
 	apiextclientv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -45,6 +49,22 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		return err
 	}
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cc.KubeConfig)
+	if err != nil {
+		return err
+	}
+	found, err := isResourceRegistered(discoveryClient, schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "Issuer",
+	})
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("please make sure that cert-manager is installed on your cluster")
+	}
 
 	namespace := getNamespace()
 
@@ -91,4 +111,20 @@ func getNamespace() string {
 		return podNamespace
 	}
 	return operatorNamespace
+}
+
+func isResourceRegistered(discoveryClient discovery.DiscoveryInterface, gvk schema.GroupVersionKind) (bool, error) {
+	apiResourceLists, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	for _, apiResource := range apiResourceLists.APIResources {
+		if apiResource.Kind == gvk.Kind {
+			return true, nil
+		}
+	}
+	return false, nil
 }

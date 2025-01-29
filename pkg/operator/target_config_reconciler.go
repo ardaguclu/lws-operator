@@ -11,7 +11,11 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextclientv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -24,6 +28,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -82,6 +87,24 @@ func (c *TargetConfigReconciler) sync() error {
 	leaderWorkerSetOperator, err := c.operatorClient.Get(c.ctx, operatorclient.OperatorConfigName, metav1.GetOptions{})
 	if err != nil {
 		klog.ErrorS(err, "unable to get operator configuration", "namespace", c.namespace, "openshift-lws-operator", operatorclient.OperatorConfigName)
+		return err
+	}
+
+	_, _, err = c.manageIssuerCR(leaderWorkerSetOperator)
+	if err != nil {
+		klog.Errorf("unable to manage issuer err: %v", err)
+		return err
+	}
+
+	_, _, err = c.manageCertificateWebhookCR(leaderWorkerSetOperator)
+	if err != nil {
+		klog.Errorf("unable to manage webhook certificate err: %v", err)
+		return err
+	}
+
+	_, _, err = c.manageCertificateMetricsCR(leaderWorkerSetOperator)
+	if err != nil {
+		klog.Errorf("unable to manage metrics certificate err: %v", err)
 		return err
 	}
 
@@ -455,6 +478,114 @@ func (c *TargetConfigReconciler) manageServiceAccount(leaderWorkerSetOperator *l
 	return resourceapply.ApplyServiceAccount(c.ctx, c.kubeClient.CoreV1(), c.eventRecorder, required)
 }
 
+func (c *TargetConfigReconciler) manageIssuerCR(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*unstructured.Unstructured, bool, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    "cert-manager.io",
+		Version:  "v1",
+		Resource: "issuers",
+	}
+
+	required := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cert-manager.io/v1",
+			"kind":       "Issuer",
+			"metadata": map[string]interface{}{
+				"ownerReferences": []interface{}{
+					map[string]interface{}{
+						"apiVersion": "operator.openshift.io/v1",
+						"kind":       "LeaderWorkerSetOperator",
+						"name":       leaderWorkerSetOperator.Name,
+						"uid":        leaderWorkerSetOperator.UID,
+					},
+				},
+				"name":      "selfsigned",
+				"namespace": c.namespace,
+			},
+			"spec": map[string]interface{}{
+				"selfSigned": map[string]interface{}{},
+			},
+		},
+	}
+
+	return applyUnstructured(c.ctx, c.dynamicClient, c.namespace, "selfsigned", required, gvr, c.eventRecorder)
+}
+
+func (c *TargetConfigReconciler) manageCertificateMetricsCR(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*unstructured.Unstructured, bool, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    "cert-manager.io",
+		Version:  "v1",
+		Resource: "certificates",
+	}
+
+	required := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cert-manager.io/v1",
+			"kind":       "Certificate",
+			"metadata": map[string]interface{}{
+				"ownerReferences": []interface{}{
+					map[string]interface{}{
+						"apiVersion": "operator.openshift.io/v1",
+						"kind":       "LeaderWorkerSetOperator",
+						"name":       leaderWorkerSetOperator.Name,
+						"uid":        leaderWorkerSetOperator.UID,
+					},
+				},
+				"name":      "manager-cert",
+				"namespace": c.namespace,
+			},
+			"spec": map[string]interface{}{
+				"secretName": "lws-manager-server-cert",
+				"dnsName": []interface{}{
+					"lws-controller-manager-metrics-service.openshift-lws-operator.svc",
+				},
+				"issuerRef": map[string]interface{}{
+					"name": "selfsigned",
+				},
+			},
+		},
+	}
+
+	return applyUnstructured(c.ctx, c.dynamicClient, c.namespace, "manager-cert", required, gvr, c.eventRecorder)
+}
+
+func (c *TargetConfigReconciler) manageCertificateWebhookCR(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*unstructured.Unstructured, bool, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    "cert-manager.io",
+		Version:  "v1",
+		Resource: "certificates",
+	}
+
+	required := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cert-manager.io/v1",
+			"kind":       "Certificate",
+			"metadata": map[string]interface{}{
+				"ownerReferences": []interface{}{
+					map[string]interface{}{
+						"apiVersion": "operator.openshift.io/v1",
+						"kind":       "LeaderWorkerSetOperator",
+						"name":       leaderWorkerSetOperator.Name,
+						"uid":        leaderWorkerSetOperator.UID,
+					},
+				},
+				"name":      "webhook-cert",
+				"namespace": c.namespace,
+			},
+			"spec": map[string]interface{}{
+				"secretName": "lws-webhook-server-cert",
+				"dnsName": []interface{}{
+					"lws-webhook-service.openshift-lws-operator.svc",
+				},
+				"issuerRef": map[string]interface{}{
+					"name": "selfsigned",
+				},
+			},
+		},
+	}
+
+	return applyUnstructured(c.ctx, c.dynamicClient, c.namespace, "webhook-cert", required, gvr, c.eventRecorder)
+}
+
 func (c *TargetConfigReconciler) manageCustomResourceDefinition(leaderWorkerSetOperator *leaderworkersetapiv1.LeaderWorkerSetOperator) (*apiextensionv1.CustomResourceDefinition, bool, error) {
 	required := resourceread.ReadCustomResourceDefinitionV1OrDie(bindata.MustAsset("assets/lws-operator/leaderworkerset.x-k8s.io_leaderworkersets.yaml"))
 	ownerReference := metav1.OwnerReference{
@@ -474,6 +605,13 @@ func (c *TargetConfigReconciler) manageCustomResourceDefinition(leaderWorkerSetO
 		required.Spec.Conversion.Webhook.ClientConfig.Service != nil {
 		required.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = c.namespace
 	}
+
+	annotations := required.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations["cert-manager.io/inject-ca-from"] = fmt.Sprintf("%s/webhook-cert", c.namespace)
+	required.SetAnnotations(annotations)
 
 	return resourceapply.ApplyCustomResourceDefinitionV1(c.ctx, c.apiextensionClient.ApiextensionsV1(), c.eventRecorder, required)
 }
@@ -497,6 +635,13 @@ func (c *TargetConfigReconciler) manageMutatingWebhook(leaderWorkerSetOperator *
 		}
 	}
 
+	annotations := required.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations["cert-manager.io/inject-ca-from"] = fmt.Sprintf("%s/webhook-cert", c.namespace)
+	required.SetAnnotations(annotations)
+
 	return resourceapply.ApplyMutatingWebhookConfigurationImproved(c.ctx, c.kubeClient.AdmissionregistrationV1(), c.eventRecorder, required, resourceapply.NewResourceCache())
 }
 
@@ -518,6 +663,13 @@ func (c *TargetConfigReconciler) manageValidatingWebhook(leaderWorkerSetOperator
 			required.Webhooks[i].ClientConfig.Service.Namespace = c.namespace
 		}
 	}
+
+	annotations := required.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations["cert-manager.io/inject-ca-from"] = fmt.Sprintf("%s/webhook-cert", c.namespace)
+	required.SetAnnotations(annotations)
 
 	return resourceapply.ApplyValidatingWebhookConfigurationImproved(c.ctx, c.kubeClient.AdmissionregistrationV1(), c.eventRecorder, required, resourceapply.NewResourceCache())
 }
@@ -577,6 +729,64 @@ func (c *TargetConfigReconciler) manageDeployments(leaderWorkerSetOperator *lead
 		c.eventRecorder,
 		required,
 		resourcemerge.ExpectedDeploymentGeneration(required, leaderWorkerSetOperator.Status.Generations))
+}
+
+func applyUnstructured(ctx context.Context,
+	dynamicClient dynamic.Interface,
+	ns string,
+	name string,
+	required *unstructured.Unstructured,
+	gvr schema.GroupVersionResource,
+	recorder events.Recorder) (*unstructured.Unstructured, bool, error) {
+	namespacedClient := dynamicClient.Resource(gvr).Namespace(ns)
+
+	existing, err := namespacedClient.Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		want, errCreate := namespacedClient.Create(ctx, required, metav1.CreateOptions{})
+		resourcehelper.ReportCreateEvent(recorder, required, errCreate)
+		return want, true, errCreate
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	existingCopy := existing.DeepCopy()
+
+	// Replace and/or merge certain metadata fields.
+	didMetadataModify := false
+	err = resourcemerge.EnsureObjectMetaForUnstructured(&didMetadataModify, existingCopy, required)
+	if err != nil {
+		return nil, false, err
+	}
+
+	requiredSpec, _, err := unstructured.NestedMap(required.UnstructuredContent(), "spec")
+	if err != nil {
+		return nil, false, err
+	}
+	existingSpec, _, err := unstructured.NestedMap(existingCopy.UnstructuredContent(), "spec")
+	if err != nil {
+		return nil, false, err
+	}
+
+	didSpecModify := false
+	if !equality.Semantic.DeepEqual(existingSpec, requiredSpec) {
+		if err = unstructured.SetNestedMap(existingCopy.UnstructuredContent(), requiredSpec, "spec"); err != nil {
+			return nil, false, err
+		}
+		didSpecModify = true
+	}
+
+	if !didSpecModify && !didMetadataModify {
+		return existingCopy, false, nil
+	}
+
+	// Perform update if resource exists but different from the required (desired) one.
+	if klog.V(4).Enabled() {
+		klog.Infof("%s %q changes: %v", gvr.String(), ns+"/"+name, resourceapply.JSONPatchNoError(existing, existingCopy))
+	}
+	actual, errUpdate := namespacedClient.Update(ctx, existingCopy, metav1.UpdateOptions{})
+	resourcehelper.ReportUpdateEvent(recorder, existingCopy, errUpdate)
+	return actual, true, errUpdate
 }
 
 // Run starts the kube-scheduler and blocks until stopCh is closed.
